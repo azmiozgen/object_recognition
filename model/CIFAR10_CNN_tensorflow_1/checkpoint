@@ -1,0 +1,2 @@
+model_checkpoint_path: "/home/acrux/repo/object_recognition/model/CIFAR10_CNN_tensorflow_1/CIFAR10_CNN_tensorflow_1.ckpt"
+all_model_checkpoint_paths: "/home/acrux/repo/object_recognition/model/CIFAR10_CNN_tensorflow_1/CIFAR10_CNN_tensorflow_1.ckpt"
