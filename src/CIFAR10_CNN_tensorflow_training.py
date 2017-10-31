@@ -3,17 +3,17 @@ import os, sys, cPickle
 
 ## Hyper-parameters
 FC_SIZE1 = 512
-# FC_SIZE2 = 256
-LR = 1e-4
+FC_SIZE2 = 256
+LR = 1e-3
 L2_REG = 0.01
-EPOCH = 30
+EPOCH = 10
 BATCH_SIZE = 200
-KERNEL_SIZE1 = 5     ## One side (square)
+KERNEL_SIZE1 = 3     ## One side (square)
 KERNEL_SIZE2 = 5     ## One side (square)
 KERNEL_SIZE3 = 3     ## One side (square)
-FEATURE_MAP1 = 32  ## First conv layer feature maps
+FEATURE_MAP1 = 64  ## First conv layer feature maps
 FEATURE_MAP2 = 32   ## Second conv layer feature maps
-FEATURE_MAP3 = 64   ## Second conv layer feature maps
+FEATURE_MAP3 = 32   ## Second conv layer feature maps
 ADAPTIVE_LR = False
 
 filePath = os.path.abspath(sys.argv[0])
@@ -57,8 +57,7 @@ for image, label in zip(test_batch['data'], test_batch['labels']):
 test_set = [test_images, test_labels]
 
 ## Constants
-# TRAINING_SIZE = len(training_images)  ## 50000
-TRAINING_SIZE = 25000
+TRAINING_SIZE = len(training_images)  ## 50000
 TEST_SIZE = len(test_images)  ## 10000
 TRAINING_BATCH = TRAINING_SIZE / BATCH_SIZE
 TEST_BATCH = TEST_SIZE / BATCH_SIZE
@@ -102,9 +101,9 @@ y_ = tf.placeholder(tf.float32, [None, 10])  ## Correct answers
 with tf.variable_scope("layer1"):
 	W_conv1 = tf.get_variable('W_conv1', shape=(KERNEL_SIZE1, KERNEL_SIZE1, 3, FEATURE_MAP1),
 								initializer=tf.contrib.layers.xavier_initializer())
-	# b_conv1 = tf.get_variable('b_conv1', shape=(FEATURE_MAP1),
-	# 							initializer=tf.contrib.layers.variance_scaling_i())
-	b_conv1 = tf.Variable(tf.zeros([FEATURE_MAP1]))
+	b_conv1 = tf.get_variable('b_conv1', shape=(FEATURE_MAP1),
+								initializer=tf.contrib.layers.xavier_initializer())
+	# b_conv1 = tf.Variable(tf.zeros([FEATURE_MAP1]))
 
 ## [.., shape1, shape2, channel]
 x_image = tf.reshape(x, [-1, 32, 32, 3])
@@ -115,61 +114,62 @@ h_pool1 = max_pool_2x2(h_conv1)
 with tf.variable_scope("layer2"):
 	W_conv2 = tf.get_variable('W_conv2', shape=(KERNEL_SIZE2, KERNEL_SIZE2, FEATURE_MAP1, FEATURE_MAP2),
 								initializer=tf.contrib.layers.xavier_initializer())
-	# b_conv2 = tf.get_variable('b_conv2', shape=(FEATURE_MAP2),
-	# 							initializer=tf.contrib.layers.xavier_initializer())
-	b_conv2 = tf.Variable(tf.zeros([FEATURE_MAP2]))
+	b_conv2 = tf.get_variable('b_conv2', shape=(FEATURE_MAP2),
+								initializer=tf.contrib.layers.xavier_initializer())
+	# b_conv2 = tf.Variable(tf.zeros([FEATURE_MAP2]))
 
 h_conv2 = tf.nn.relu(conv2d(h_pool1, W_conv2) + b_conv2)
 h_pool2 = max_pool_2x2(h_conv2)
 
-## 3rd conv layer
+## 3rd conv layer (no pooling)
 with tf.variable_scope("layer3"):
 	W_conv3 = tf.get_variable('W_conv3', shape=(KERNEL_SIZE3, KERNEL_SIZE3, FEATURE_MAP2, FEATURE_MAP3),
 								initializer=tf.contrib.layers.xavier_initializer())
-	# b_conv3 = tf.get_variable('b_conv3', shape=(FEATURE_MAP2),
-	# 							initializer=tf.contrib.layers.xavier_initializer())
-	b_conv3 = tf.Variable(tf.zeros([FEATURE_MAP3]))
+	b_conv3 = tf.get_variable('b_conv3', shape=(FEATURE_MAP3),
+								initializer=tf.contrib.layers.xavier_initializer())
+	# b_conv3 = tf.Variable(tf.zeros([FEATURE_MAP3]))
 
 h_conv3 = tf.nn.relu(conv2d(h_pool2, W_conv3) + b_conv3)
-h_pool3 = max_pool_2x2(h_conv3)
 
 ## Fully connected layers
 
-## Image shape halves three times. (32x32) -> (16x16) -> (8x8) -> (4x4) by max_pool_2x2
+## Image shape halves three times. (32x32) -> (16x16) -> (8x8) by max_pool_2x2
 ## Conv. layer does not change image size because of padding='SAME'
 with tf.variable_scope("layer4"):
-	W_fc1 = tf.get_variable('W_fc1', shape=(4 * 4 * FEATURE_MAP3, FC_SIZE1),
+	W_fc1 = tf.get_variable('W_fc1', shape=(8 * 8 * FEATURE_MAP3, FC_SIZE1),
 								initializer=tf.contrib.layers.xavier_initializer())
-	# b_fc1 = tf.get_variable('b_fc1', shape=(FC_SIZE),
-	# 							initializer=tf.contrib.layers.xavier_initializer())
-	b_fc1 = tf.Variable(tf.zeros([FC_SIZE1]))
+	b_fc1 = tf.get_variable('b_fc1', shape=(FC_SIZE1),
+								initializer=tf.contrib.layers.xavier_initializer())
+	# b_fc1 = tf.Variable(tf.zeros([FC_SIZE1]))
 
-h_pool3_flat = tf.reshape(h_pool3, [-1, 4 * 4 * FEATURE_MAP3])
-h_fc1 = tf.nn.relu(tf.matmul(h_pool3_flat, W_fc1) + b_fc1)
+h_conv3_flat = tf.reshape(h_conv3, [-1, 8 * 8 * FEATURE_MAP3])
+h_fc1 = tf.nn.relu(tf.matmul(h_conv3_flat, W_fc1) + b_fc1)
 
-# with tf.variable_scope("layer5"):
-# 	W_fc2 = tf.get_variable('W_fc2', shape=(FC_SIZE1, FC_SIZE2),
-# 								initializer=tf.contrib.layers.xavier_initializer())
-# 	# b_fc2 = tf.get_variable('b_fc2', shape=(FC_SIZE2),
-# 	# 							initializer=tf.contrib.layers.xavier_initializer())
-# 	b_fc2 = tf.Variable(tf.zeros([FC_SIZE2]))
-#
-# h_fc1_flat = tf.reshape(h_fc1, [-1, FC_SIZE1])
-# h_fc2 = tf.nn.relu(tf.matmul(h_fc1_flat, W_fc2) + b_fc2)
-
-## Dropout
+## Dropout1
 keep_prob = tf.placeholder(tf.float32)
 h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
 
+with tf.variable_scope("layer5"):
+	W_fc2 = tf.get_variable('W_fc2', shape=(FC_SIZE1, FC_SIZE2),
+								initializer=tf.contrib.layers.xavier_initializer())
+	b_fc2 = tf.get_variable('b_fc2', shape=(FC_SIZE2),
+								initializer=tf.contrib.layers.xavier_initializer())
+	# b_fc2 = tf.Variable(tf.zeros([FC_SIZE2]))
+
+h_fc2 = tf.nn.relu(tf.matmul(h_fc1_drop, W_fc2) + b_fc2)
+
+## Dropout2
+h_fc2_drop = tf.nn.dropout(h_fc2, keep_prob)
+
 ## Softmax output
 with tf.variable_scope("layer6"):
-	W_fc3 = tf.get_variable('W_fc3', shape=(FC_SIZE1, 10),
+	W_fc3 = tf.get_variable('W_fc3', shape=(FC_SIZE2, 10),
 								initializer=tf.contrib.layers.xavier_initializer())
-	# b_fc3 = tf.get_variable('b_fc3', shape=(10),
-	# 							initializer=tf.contrib.layers.xavier_initializer())
-	b_fc3 = tf.Variable(tf.zeros([10]))
+	b_fc3 = tf.get_variable('b_fc3', shape=(10),
+								initializer=tf.contrib.layers.xavier_initializer())
+	# b_fc3 = tf.Variable(tf.zeros([10]))
 
-y_conv = tf.nn.softmax(tf.matmul(h_fc1_drop, W_fc3) + b_fc3)
+y_conv = tf.nn.softmax(tf.matmul(h_fc2_drop, W_fc3) + b_fc3)
 
 ####################
 ## Cost, accuracy ##
@@ -183,7 +183,6 @@ cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=y_
 								L2_REG * tf.nn.l2_loss(W_conv3) +
 								L2_REG * tf.nn.l2_loss(b_conv3))
 train_step = tf.train.AdamOptimizer(LR).minimize(cross_entropy)
-# train_step = tf.train.GradientDescentOptimizer(LR).minimize(cross_entropy)
 correct_prediction = tf.equal(tf.argmax(y_conv, 1), tf.argmax(y_, 1))
 accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
